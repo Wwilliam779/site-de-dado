@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>D20 — Role o destino</title>
+<style>
+  :root{ --gold:#e8b93f; --gold-2:#f7e0a0; }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0; min-height:100%;
+    background: radial-gradient(circle at 50% -10%, #211a35 0%, #0b0a10 52%, #050408 100%);
+    color:#f2ecdf;
+    font-family: ui-serif, Georgia, "Times New Roman", serif;
+    display:flex; justify-content:center;
+    padding:26px 16px 60px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .app{ width:100%; max-width:520px; display:flex; flex-direction:column; align-items:center; gap:12px; }
+
+  h1{ font-size:clamp(19px,5vw,29px); letter-spacing:.15em; text-transform:uppercase; margin:0;
+      color:var(--gold-2); text-align:center; text-shadow:0 0 26px rgba(232,185,63,.4); }
+  .sub{ margin:0; font-size:11px; letter-spacing:.3em; text-transform:uppercase; color:#8a8199; text-align:center; }
+
+  .stage{ position:relative; width:100%; height:340px; display:flex; align-items:center; justify-content:center;
+          perspective:1000px; margin-top:4px; }
+  .shadow{ position:absolute; bottom:22px; width:190px; height:26px; border-radius:50%;
+           background:radial-gradient(ellipse at center, rgba(0,0,0,.8), transparent 72%); filter:blur(4px); }
+  .hop{ transform-style:preserve-3d; will-change:transform; }
+  .die{ width:260px; height:260px; position:relative; transform-style:preserve-3d;
+        transform-origin:50% 50%; will-change:transform; }
+
+  .face{
+    position:absolute; left:50%; top:50%; width:220px; height:220px; margin:-110px 0 0 -110px;
+    background:linear-gradient(158deg,#453757 0%,#2a2039 45%,#150f1f 100%);
+    display:flex; align-items:center; justify-content:center;
+    transform-origin:50% 50%;
+    filter: drop-shadow(0 0 1px rgba(232,185,63,.55));
+  }
+  .face::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(158deg, rgba(255,255,255,.14), transparent 55%);
+  }
+  .face span{
+    position:absolute; font-size:26px; font-weight:700; color:var(--gold-2);
+    text-shadow:0 1px 0 #000, 0 0 12px rgba(0,0,0,.95);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .result{ text-align:center; min-height:88px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+  .num{ font-size:58px; font-weight:800; line-height:1; color:#fff; font-family: ui-sans-serif, system-ui, sans-serif;
+        font-variant-numeric:tabular-nums; text-shadow:0 0 34px rgba(232,185,63,.45); }
+  .num.crit{ color:#ffd84d; text-shadow:0 0 30px rgba(255,200,40,.9); }
+  .num.fail{ color:#ff6b6b; text-shadow:0 0 30px rgba(255,60,60,.85); }
+  .verdict{ font-size:11px; letter-spacing:.26em; text-transform:uppercase; margin-top:8px; min-height:14px; color:#b9aec9; }
+
+  button{
+    font:inherit; font-size:14px; font-weight:700; letter-spacing:.32em; text-transform:uppercase;
+    padding:16px 44px; border-radius:999px; cursor:pointer; color:#1a1408;
+    border:1px solid #f7e0a0;
+    background:linear-gradient(180deg,#f7e0a0,#e8b93f 46%,#b8892a);
+    box-shadow:0 10px 30px rgba(232,185,63,.28), inset 0 1px 0 rgba(255,255,255,.65);
+    transition: transform .12s ease, box-shadow .2s ease, filter .2s ease;
+  }
+  button:hover:not(:disabled){ transform:translateY(-2px); box-shadow:0 15px 38px rgba(232,185,63,.45); }
+  button:active:not(:disabled){ transform:translateY(1px) scale(.99); }
+  button:disabled{ filter:grayscale(.55) brightness(.78); cursor:default; }
+
+  .history{ width:100%; margin-top:8px; }
+  .history h2{ font-size:10px; letter-spacing:.28em; text-transform:uppercase; color:#8a8199;
+               font-weight:600; margin:0 0 9px; font-family: ui-sans-serif, system-ui, sans-serif; }
+  #log{ display:flex; flex-wrap:wrap; gap:7px; min-height:34px; }
+  .chip{ min-width:34px; text-align:center; padding:6px 9px; border-radius:8px;
+         background:#191325; border:1px solid #2c2340; font-size:14px;
+         font-variant-numeric:tabular-nums; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .chip.c{ background:#3a2f10; border-color:#8a6a15; color:#ffd84d; }
+  .chip.f{ background:#3a1218; border-color:#8a2130; color:#ff9a9a; }
+
+  @keyframes hopAnim{
+    0%{ transform:translateY(0); }
+    12%{ transform:translateY(-46px); }
+    26%{ transform:translateY(0); }
+    38%{ transform:translateY(-24px); }
+    50%{ transform:translateY(0); }
+    58%{ transform:translateY(-9px); }
+    66%{ transform:translateY(0); }
+    72%{ transform:translateY(-3px); }
+    100%{ transform:translateY(0); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Dado de 20 lados</h1>
+  <p class="sub">toque em jogar e confie no destino</p>
+
+  <div class="stage">
+    <div class="shadow"></div>
+    <div class="hop" id="hop">
+      <div class="die" id="die"></div>
+    </div>
+  </div>
+
+  <div class="result">
+    <div class="num" id="num">—</div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <button id="roll">Jogar</button>
+
+  <div class="history">
+    <h2>Histórico</h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const BOX = 220, R = 130, APOTHEM = 0.7946545 * R;
+  const die = document.getElementById('die');
+  const hop = document.getElementById('hop');
+  const btn = document.getElementById('roll');
+  const numEl = document.getElementById('num');
+  const verdictEl = document.getElementById('verdict');
+  const log = document.getElementById('log');
+
+  const dist = (a, b) => Math.hypot(a[0]-b[0], a[1]-b[1], a[2]-b[2]);
+  const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+  const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+  const norm = v => { const l = Math.hypot(v[0],v[1],v[2]) || 1; return [v[0]/l, v[1]/l, v[2]/l]; };
+
+  /* ---------- geometria do icosaedro ---------- */
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  const raw = [];
+  for (const a of [1,-1]) for (const b of [1,-1]) {
+    raw.push([0, a, b*PHI], [a, b*PHI, 0], [a*PHI, 0, b]);
+  }
+  const uniq = [];
+  for (const v of raw) if (!uniq.some(u => dist(u, v) < 1e-9)) uniq.push(v);
+
+  const mathVerts = uniq.map(v => norm(v));          // y para cima (para orientar faces)
+  const cssVerts  = mathVerts.map(v => [v[0], -v[1], v[2]]); // y invertido (espaço CSS)
+
+  let edge = Infinity;
+  for (let i = 0; i < 12; i++) for (let j = i+1; j < 12; j++) edge = Math.min(edge, dist(mathVerts[i], mathVerts[j]));
+
+  const faceTris = [];
+  for (let i = 0; i < 12; i++) for (let j = i+1; j < 12; j++) for (let k = j+1; k < 12; k++) {
+    if (Math.abs(dist(mathVerts[i], mathVerts[j]) - edge) > 1e-6) continue;
+    if (Math.abs(dist(mathVerts[j], mathVerts[k]) - edge) > 1e-6) continue;
+    if (Math.abs(dist(mathVerts[i], mathVerts[k]) - edge) > 1e-6) continue;
+    let a = i, b = j, c = k;
+    const ctr = [0,1,2].map(t => (mathVerts[a][t] + mathVerts[b][t] + mathVerts[c][t]) / 3);
+    const cr = cross(
+      mathVerts[b].map((v,t) => v - mathVerts[a][t]),
+      mathVerts[c].map((v,t) => v - mathVerts[a][t])
+    );
+    if (dot(cr, ctr) < 0) [b, c] = [c, b];
+    faceTris.push([a, b, c]);
+  }
+
+  const normals = faceTris.map(t => norm([
+    (cssVerts[t[0]][0] + cssVerts[t[1]][0] + cssVerts[t[2]][0]) / 3,
+    (cssVerts[t[0]][1] + cssVerts[t[1]][1] + cssVerts[t[2]][1]) / 3,
+    (cssVerts[t[0]][2] + cssVerts[t[1]][2] + cssVerts[t[2]][2]) / 3
+  ]));
+
+  /* ---------- numeração: faces opostas somam 21 ---------- */
+  const opposite = normals.map(n => {
+    let best = -1, bd = 1;
+    normals.forEach((m, i) => { const d = dot(n, m); if (d < bd) { bd = d; best = i; } });
+    return best;
+  });
+  const numbers = new Array(20).fill(0);
+  let next = 1;
+  for (let i = 0; i < 20; i++) {
+    if (numbers[i]) continue;
+    numbers[i] = next;
+    numbers[opposite[i]] = 21 - next;
+    next++;
+  }
+
+  /* ---------- construção das faces ---------- */
+  faceTris.forEach((tri, idx) => {
+    const n = normals[idx];
+    const el = document.createElement('div');
+    el.className = 'face';
+
+    // base local no plano da face
+    const v0 = cssVerts[tri[0]];
+    const u = norm(v0.map((v,t) => v - dot(v0, n) * n[t]));
+    const w = cross(n, u);
+    const ctr = [0,1,2].map(t => (cssVerts[tri[0]][t] + cssVerts[tri[1]][t] + cssVerts[tri[2]][t]) / 3);
+
+    const pts = tri.map(vi => {
+      const d = cssVerts[vi].map((v,t) => v - ctr[t]);
+      return [BOX/2 + dot(d, u) * R, BOX/2 + dot(d, w) * R];
+    });
+    el.style.clipPath = 'polygon(' + pts.map(p => `${p[0].toFixed(2)}px ${p[1].toFixed(2)}px`).join(',') + ')';
+
+    const a = Math.atan2(n[0], n[2]);
+    const b = -Math.asin(Math.max(-1, Math.min(1, n[1])));
+    el.style.transform =
+      `translate3d(${n[0]*APOTHEM}px, ${n[1]*APOTHEM}px, ${n[2]*APOTHEM}px) rotateY(${a}rad) rotateX(${b}rad)`;
+
+    const label = document.createElement('span');
+    label.textContent = numbers[idx];
+    el.appendChild(label);
+    die.appendChild(el);
+  });
+
+  /* ---------- matrizes ---------- */
+  function m3d(M) {
+    return `matrix3d(${M[0][0]},${M[1][0]},${M[2][0]},0,`
+         + `${M[0][1]},${M[1][1]},${M[2][1]},0,`
+         + `${M[0][2]},${M[1][2]},${M[2][2]},0,0,0,0,1)`;
+  }
+  function randomM3d() {
+    const u1 = Math.random(), u2 = Math.random(), u3 = Math.random();
+    const s1 = Math.sqrt(1-u1), s2 = Math.sqrt(u1);
+    const x = s1*Math.sin(2*Math.PI*u2), y = s1*Math.cos(2*Math.PI*u2);
+    const z = s2*Math.sin(2*Math.PI*u3), w = s2*Math.cos(2*Math.PI*u3);
+    return m3d([
+      [1-2*(y*y+z*z), 2*(x*y-z*w),   2*(x*z+y*w)],
+      [2*(x*y+z*w),   1-2*(x*x+z*z), 2*(y*z-x*w)],
+      [2*(x*z-y*w),   2*(y*z+x*w),   1-2*(x*x+y*y)]
+    ]);
+  }
+  function targetM3d(n, rollZ) {
+    const ca = Math.cos(Math.atan2(n[0], n[2])), sa = Math.sin(Math.atan2(n[0], n[2]));
+    const b = -Math.asin(Math.max(-1, Math.min(1, n[1])));
+    const cb = Math.cos(b), sb = Math.sin(b);
+    const cr = Math.cos(rollZ), sr = Math.sin(rollZ);
+    return m3d([
+      [cr*ca, cr*sa*sb - sr*cb, cr*sa*cb + sr*sb],
+      [sr*ca, sr*sa*sb + cr*cb, sr*sa*cb - cr*sb],
+      [-sa,   ca*sb,            ca*cb]
+    ]);
+  }
+
+  die.style.transform = randomM3d();
+
+  /* ---------- rolagem ---------- */
+  let rolling = false;
+  let history = [];
+
+  function roll() {
+    if (rolling) return;
+    rolling = true;
+    btn.disabled = true;
+    numEl.textContent = '—';
+    numEl.className = 'num';
+    verdictEl.textContent = '';
+
+    const idx = Math.floor(Math.random() * 20);
+    const value = numbers[idx];
+    const target = targetM3d(normals[idx], (Math.random()*2-1)*Math.PI + Math.PI*4);
+
+    const name = 'r' + Date.now();
+    const start = die.style.transform;
+    let css = `@keyframes ${name}{0%{transform:${start}}`;
+    for (const p of [16, 34, 52, 70, 86]) css += `${p}%{transform:${randomM3d()}}`;
+    css += `100%{transform:${target}}}`;
+
+    const styleEl = document.createElement('style');
+    styleEl.textContent = css;
+    document.head.appendChild(styleEl);
+
+    const dur = 2200 + Math.random() * 700;
+    die.style.animation = 'none';
+    void die.offsetWidth;
+    die.style.animation = `${name} ${dur}ms cubic-bezier(.16,.78,.22,1) forwards`;
+    hop.style.animation = `hopAnim ${dur}ms cubic-bezier(.3,.7,.4,1) forwards`;
+
+    const done = () => {
+      die.removeEventListener('animationend', done);
+      die.style.animation = 'none';
+      hop.style.animation = 'none';
+      die.style.transform = target;
+      styleEl.remove();
+
+      numEl.textContent = value;
+      if (value === 20) { numEl.classList.add('crit'); verdictEl.textContent = 'Sucesso crítico'; }
+      else if (value === 1) { numEl.classList.add('fail'); verdictEl.textContent = 'Falha crítica'; }
+      else { verdictEl.textContent = 'Resultado ' + value; }
+
+      history.unshift(value);
+      history = history.slice(0, 24);
+      log.innerHTML = '';
+      for (const h of history) {
+        const chip = document.createElement('div');
+        chip.className = 'chip' + (h === 20 ? ' c' : h === 1 ? ' f' : '');
+        chip.textContent = h;
+        log.appendChild(chip);
+      }
+
+      rolling = false;
+      btn.disabled = false;
+    };
+    die.addEventListener('animationend', done);
+  }
+
+  btn.addEventListener('click', roll);
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'Enter') { e.preventDefault(); roll(); }
+  });
+})();
+</script>
+</body>
+</html>
